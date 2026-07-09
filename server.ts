@@ -9,6 +9,11 @@ const conversionStorage = new Map<string, { filename: string; content: Uint8Arra
 
 // Inicializamos llamando al constructor correcto dentro del módulo importado
 const ifcApi = new IfcAPI.IfcAPI();
+
+// Le decimos al motor geométrico exactamente dónde encontrar su binario WebAssembly
+const wasmPath = path.join(process.cwd(), "node_modules", "web-ifc", "web-ifc.wasm");
+ifcApi.SetWasmPath(wasmPath);
+
 ifcApi.Init();
 
 function extractRevitMetadata(buffer: Buffer, originalFileName: string) {

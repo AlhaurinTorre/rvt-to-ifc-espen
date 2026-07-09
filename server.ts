@@ -7,24 +7,8 @@ import IfcAPI from "web-ifc";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 const conversionStorage = new Map<string, { filename: string; content: Uint8Array; metadata: any; elements: any[] }>();
-
-const ifcApi = new IfcAPI.IfcAPI();
-
-// Buscamos la ruta absoluta real dentro del contenedor de Render
-const localWasm = path.join(process.cwd(), "node_modules", "web-ifc", "web-ifc-node.wasm");
-const alternativeWasm = path.join(process.cwd(), "node_modules", "web-ifc", "web-ifc.wasm");
-
-if (fs.existsSync(localWasm)) {
-  // Si existe el binario de Node, le pasamos su directorio exacto terminado en barra
-  ifcApi.SetWasmPath(path.join(process.cwd(), "node_modules", "web-ifc") + path.sep);
-} else if (fs.existsSync(alternativeWasm)) {
-  ifcApi.SetWasmPath(path.join(process.cwd(), "node_modules", "web-ifc") + path.sep);
-} else {
-  // Si por alguna razón Render los movió al build, apuntamos a la raíz del paquete
-  ifcApi.SetWasmPath("./node_modules/web-ifc/");
-}
-
-ifcApi.Init();
+// Declaramos la variable globalmente pero sin inicializarla aún
+let ifcApi: any = null;
 
 function extractRevitMetadata(buffer: Buffer, originalFileName: string) {
   const sizeMB = (buffer.length / (1024 * 1024)).toFixed(2);
@@ -195,6 +179,17 @@ app.get("/api/download/:id", (req, res) => {
 });
 
 async function startServer() {
+  // Inicializamos web-ifc de forma segura antes de levantar el servidor
+  try {
+    ifcApi = new IfcAPI.IfcAPI();
+    // En entornos Node, simplemente pasamos la ruta del directorio base relativo
+    ifcApi.SetWasmPath("./node_modules/web-ifc/");
+    await ifcApi.Init();
+    console.log("Motor geométrico web-ifc inicializado correctamente.");
+  } catch (wasmError) {
+    console.error("Error crítico inicializando el WASM de web-ifc:", wasmError);
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const { createServer } = await import("vite");
     const vite = await createServer({ server: { middlewareMode: true }, appType: "spa" });
@@ -207,5 +202,7 @@ async function startServer() {
 
   app.listen(3000, "0.0.0.0", () => console.log("Servidor Geometria Real Activo"));
 }
+
+startServer().catch((err) => console.error("Error al iniciar el servidor:", err));
 
 startServer().catch((err) => console.error("Error al iniciar el servidor:", err));

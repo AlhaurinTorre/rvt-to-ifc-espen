@@ -26,8 +26,13 @@ function extractRevitMetadata(buffer: Buffer, originalFileName: string) {
 
 // NUEVO MOTOR GEOMÉTRICO 3D (Genera sólidos reales usando web-ifc)
 function generateReal3DIFC(projectName: string, elements: any[]): Uint8Array {
+  // Aseguramos el motor localmente para que nunca sea null
+  const IfcConstructor = IfcAPI.IfcAPI || (IfcAPI as any);
+  const localIfcApi = new IfcConstructor();
+  localIfcApi.SetWasmPath("./node_modules/web-ifc/");
+  
   // 1. Crear un modelo IFC en blanco en la memoria del servidor
-  const modelID = ifcApi.CreateModel();
+  const modelID = localIfcApi.CreateModel();
 
   // 2. Definir unidades básicas (Metros)
   const lengthUnit = new IfcAPI.IFC4.IfcSIUnit(IfcAPI.IFC4.IfcSUnitEnum.LENGTHUNIT, null, IfcAPI.IFC4.IfcSIPrefix.NONE, IfcAPI.IFC4.IfcSIUnitName.METRE);
@@ -36,13 +41,13 @@ function generateReal3DIFC(projectName: string, elements: any[]): Uint8Array {
   // 3. Crear el proyecto raíz, sitio y edificio reales en la base de datos geométrica
   const ownerHistory = new IfcAPI.IFC4.IfcOwnerHistory(null, null, null, IfcAPI.IFC4.IfcChangeActionEnum.ADDED, null, null, null, Math.floor(Date.now() / 1000));
   const project = new IfcAPI.IFC4.IfcProject("3Gz8vA$7PB2v1rX6$Raaaaa", ownerHistory, projectName, "Convertido por IA con Geometria Real", null, null, null, null, unitAssignment);
-  ifcApi.WriteLine(modelID, project);
+  localIfcApi.WriteLine(modelID, project);
 
   const site = new IfcAPI.IFC4.IfcSite("2B$9zC_8PD3w2sZ8$Taaaaa", ownerHistory, "Parcela", "Coordenadas base", null, null, null, null, IfcAPI.IFC4.IfcElementCompositionEnum.ELEMENT, null, null, null, null, null);
-  ifcApi.WriteLine(modelID, site);
+  localIfcApi.WriteLine(modelID, site);
 
   const building = new IfcAPI.IFC4.IfcBuilding("1Xy9zB$8PC3w2sY7$Saaaaa", ownerHistory, "Edificio Generado", "Estructura 3D", null, null, null, null, IfcAPI.IFC4.IfcElementCompositionEnum.ELEMENT, null, null, null);
-  ifcApi.WriteLine(modelID, building);
+  localIfcApi.WriteLine(modelID, building);
 
   // Posicionamiento geométrico inicial (0,0,0)
   const origin = new IfcAPI.IFC4.IfcCartesianPoint([0, 0, 0]);
@@ -50,7 +55,7 @@ function generateReal3DIFC(projectName: string, elements: any[]): Uint8Array {
   const refDirection = new IfcAPI.IFC4.IfcDirection([1, 0, 0]);
   const placement = new IfcAPI.IFC4.IfcAxis2Placement3D(origin, axis, refDirection);
   const localPlacement = new IfcAPI.IFC4.IfcLocalPlacement(null, placement);
-  ifcApi.WriteLine(modelID, localPlacement);
+  localIfcApi.WriteLine(modelID, localPlacement);
 
   let currentX = 0.0; // Desplazamiento secuencial en el espacio para que los objetos no se solapen
 
@@ -67,27 +72,27 @@ function generateReal3DIFC(projectName: string, elements: any[]): Uint8Array {
     const point3 = new IfcAPI.IFC4.IfcCartesianPoint([length, width]);
     const point4 = new IfcAPI.IFC4.IfcCartesianPoint([0, width]);
     const polyline = new IfcAPI.IFC4.IfcPolyline([point1, point2, point3, point4, point1]);
-    ifcApi.WriteLine(modelID, polyline);
+    localIfcApi.WriteLine(modelID, polyline);
 
     const profile = new IfcAPI.IFC4.IfcArbitraryClosedProfileDef(IfcAPI.IFC4.IfcProfileTypeEnum.AREA, el.name, polyline);
-    ifcApi.WriteLine(modelID, profile);
+    localIfcApi.WriteLine(modelID, profile);
 
     // Crear la extrusión 3D (darle volumen hacia arriba 'height' metros)
     const extrudeDirection = new IfcAPI.IFC4.IfcDirection([0, 0, 1]);
     const extrudePlacement = new IfcAPI.IFC4.IfcAxis2Placement3D(new IfcAPI.IFC4.IfcCartesianPoint([currentX, 0, 0]), axis, refDirection);
     const solid = new IfcAPI.IFC4.IfcExtrudedAreaSolid(profile, extrudePlacement, extrudeDirection, height);
-    ifcApi.WriteLine(modelID, solid);
+    localIfcApi.WriteLine(modelID, solid);
 
     // Definir representación geométrica del elemento
     const shapeRep = new IfcAPI.IFC4.IfcShapeRepresentation(null, "Body", "SweptSolid", [solid]);
-    ifcApi.WriteLine(modelID, shapeRep);
+    localIfcApi.WriteLine(modelID, shapeRep);
     const productRep = new IfcAPI.IFC4.IfcProductDefinitionShape(null, null, [shapeRep]);
-    ifcApi.WriteLine(modelID, productRep);
+    localIfcApi.WriteLine(modelID, productRep);
 
     // Instanciar el objeto arquitectónico correspondiente según lo que descubrió la IA
     let ifcProduct;
     const itemPlacement = new IfcAPI.IFC4.IfcLocalPlacement(localPlacement, extrudePlacement);
-    ifcApi.WriteLine(modelID, itemPlacement);
+    localIfcApi.WriteLine(modelID, itemPlacement);
 
     if (el.ifcClass === "IfcDoor") {
       ifcProduct = new IfcAPI.IFC4.IfcDoor("GuidDoor" + Math.random().toString(36).substring(2,7), ownerHistory, el.name, el.type, null, itemPlacement, productRep, null, null, null, null);
@@ -98,13 +103,13 @@ function generateReal3DIFC(projectName: string, elements: any[]): Uint8Array {
       ifcProduct = new IfcAPI.IFC4.IfcWall("GuidWall" + Math.random().toString(36).substring(2,7), ownerHistory, el.name, el.type, null, itemPlacement, productRep, null);
     }
     
-    ifcApi.WriteLine(modelID, ifcProduct);
+    localIfcApi.WriteLine(modelID, ifcProduct);
     currentX += length + 1.0; // Separamos el siguiente objeto un metro para que se vea claro en el visor BIM
   });
 
   // 5. Exportar todo el árbol geométrico compilado en binario STEP IFC
-  const data = ifcApi.SaveModel(modelID);
-  ifcApi.CloseModel(modelID);
+  const data = localIfcApi.SaveModel(modelID);
+  localIfcApi.CloseModel(modelID);
   
   return data;
 }
@@ -132,14 +137,18 @@ app.post("/api/convert", express.raw({ limit: "50mb", type: "application/octet-s
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
           contents: `Analiza el volcado de texto de este archivo de Revit e identifica los objetos constructivos principales (muros, puertas, ventanas). 
-          Devuelve un arreglo JSON limpio. Para cada objeto infiere o busca dimensiones aproximadas lógicas en metros (Ej: un muro largo de 4.0, espesor 0.3, altura 3.0).
-          Esquema:
+          Devuelve estrictamente un arreglo JSON limpio sin comentarios explicativos de ningún tipo. Para cada objeto infiere o busca dimensiones aproximadas lógicas en metros (Ej: un muro largo de 4.0, espesor 0.3, altura 3.0).
+          Esquema obligatorio:
           [{ "id": "1", "name": "Muro Exterior", "ifcClass": "IfcWall", "type": "Hormigon", "properties": { "Dimensiones": { "Largo": "5.0", "Espesor": "0.3", "Altura": "2.8" } } }]
           
           Texto:
-          ${textDump.substring(0, 25000)}`
+          ${textDump.substring(0, 25000)}`,
+          // ESTO OBLIGA A GEMINI A RESPONDER EXCLUSIVAMENTE EN FORMATO JSON
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
         });
-        const cleanJson = (response.text || "[]").replace(/```json|```/g, "").trim();
+        const cleanJson = (response.text || "[]").trim();
         elements = JSON.parse(cleanJson);
       } catch (e) {
         console.error("Fallo IA, usando fallback estructurado", e);
@@ -180,12 +189,10 @@ app.get("/api/download/:id", (req, res) => {
 
 async function startServer() {
   // Inicializamos web-ifc de forma segura antes de levantar el servidor
-try {
-    // Truco definitivo: detecta si la clase está en .IfcAPI o directamente en el objeto importado
+  try {
     const IfcConstructor = IfcAPI.IfcAPI || (IfcAPI as any);
     ifcApi = new IfcConstructor();
     
-    // Asignamos la ruta de la carpeta base
     ifcApi.SetWasmPath("./node_modules/web-ifc/");
     await ifcApi.Init();
     console.log("Motor geométrico web-ifc inicializado correctamente.");

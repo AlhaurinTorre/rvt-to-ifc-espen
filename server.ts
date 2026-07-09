@@ -179,8 +179,31 @@ app.post("/api/convert", express.raw({ limit: "50mb", type: "application/octet-s
   }
 });
 
-// Servir frontend en producción si es necesario y levantar el puerto
+res.json({ id: conversionId, metadata, elements });
+  } catch (error: any) {
+    console.error("Error en el servidor:", error);
+    res.status(500).json({ error: error.message || "Error interno del servidor" });
+  }
+});
+
+// === REEMPLAZA DESDE AQUÍ HASTA EL FINAL DEL ARCHIVO ===
+
+// Servir los archivos estáticos de React (Vite los deja en la raíz de 'dist')
+const publicPath = path.join(__dirname);
+app.use(express.static(publicPath));
+
+// Cualquier petición que no vaya a /api/convert cargará tu aplicación de React
+app.get("*", (req, res) => {
+  const indexPath = path.join(publicPath, "index.html");
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send("Frontend no encontrado en dist/. Asegúrate de que 'vite build' se completó.");
+  }
+});
+
+// Escuchar el puerto asignado por Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
+  console.log(`Servidor híbrido corriendo en el puerto ${PORT}`);
 });

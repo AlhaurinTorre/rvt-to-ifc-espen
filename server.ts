@@ -21,7 +21,7 @@ function extractRevitMetadata(buffer: Buffer, originalFileName: string) {
   return { version, projectName: originalFileName.replace(/\.(rvt|rfa)$/i, ""), author: "Usuario BIM", fileSize: `${sizeMB} MB`, fileType };
 }
 
-// MOTOR GEOMÉTRICO 3D CON CORRECCIÓN WASM DE INTERCEPTACIÓN
+// MOTOR GEOMÉTRICO 3D CON INICIALIZACIÓN ORTODOXA PARA RENDER
 async function generateReal3DIFC(projectName: string, elements: any[]): Promise<Uint8Array> {
   let IfcConstructor;
   if ((IfcAPI as any).PlutusAPI) {
@@ -36,25 +36,25 @@ async function generateReal3DIFC(projectName: string, elements: any[]): Promise<
 
   const localIfcApi = new IfcConstructor();
   
+  // Localizamos la carpeta contenedora del wasm de forma absoluta
   const rootDir = process.cwd();
-  const wasmFilePath = path.join(rootDir, "node_modules", "web-ifc", "web-ifc-node.wasm");
+  const wasmFolder = path.join(rootDir, "node_modules", "web-ifc") + path.sep;
 
-  if (!fs.existsSync(wasmFilePath)) {
-    throw new Error(`No se encontró el archivo WASM en la ruta: ${wasmFilePath}`);
-  }
-
-  // Interceptación de Emscripten para inyectar la ruta absoluta limpia en Render
-  localIfcApi.wasmModule = {
-    locateFile: () => wasmFilePath
-  };
+  // En lugar de mutar propiedades internas que corrompen el "schema",
+  // usamos la API oficial de web-ifc pasándole el path del directorio contenedor terminado en "/" o "\"
+  localIfcApi.SetWasmPath(wasmFolder);
   
+  // Forzamos la carga asíncrona estándar del ecosistema
   await localIfcApi.Init();
   
+  // 1. Crear un modelo IFC en blanco en la memoria del servidor
   const modelID = localIfcApi.CreateModel();
 
+  // 2. Definir unidades básicas (Metros)
   const lengthUnit = new localIfcApi.IFC4.IfcSIUnit(localIfcApi.IFC4.IfcSUnitEnum.LENGTHUNIT, null, localIfcApi.IFC4.IfcSIPrefix.NONE, localIfcApi.IFC4.IfcSIUnitName.METRE);
   const unitAssignment = new localIfcApi.IFC4.IfcUnitAssignment([lengthUnit]);
   
+  // 3. Crear el proyecto raíz, sitio y edificio reales en la base de datos geométrica
   const ownerHistory = new localIfcApi.IFC4.IfcOwnerHistory(null, null, null, localIfcApi.IFC4.IfcChangeActionEnum.ADDED, null, null, null, Math.floor(Date.now() / 1000));
   const project = new localIfcApi.IFC4.IfcProject("3Gz8vA$7PB2v1rX6$Raaaaa", ownerHistory, projectName, "Convertido por IA con Geometria Real", null, null, null, null, unitAssignment);
   localIfcApi.WriteLine(modelID, project);
@@ -65,6 +65,7 @@ async function generateReal3DIFC(projectName: string, elements: any[]): Promise<
   const building = new localIfcApi.IFC4.IfcBuilding("1Xy9zB$8PC3w2sY7$Saaaaa", ownerHistory, "Edificio Generado", "Estructura 3D", null, null, null, null, localIfcApi.IFC4.IfcElementCompositionEnum.ELEMENT, null, null, null);
   localIfcApi.WriteLine(modelID, building);
 
+  // Posicionamiento geométrico inicial (0,0,0)
   const origin = new localIfcApi.IFC4.IfcCartesianPoint([0, 0, 0]);
   const axis = new localIfcApi.IFC4.IfcDirection([0, 0, 1]);
   const refDirection = new localIfcApi.IFC4.IfcDirection([1, 0, 0]);
@@ -74,7 +75,8 @@ async function generateReal3DIFC(projectName: string, elements: any[]): Promise<
 
   let currentX = 0.0;
 
-  elements.forEach((el) => {
+  // 4. Mapear cada elemento detectado por la IA en un SÓLIDO 3D REAL (Extrusión paramétrica)
+  elements.forEach((el: any) => {
     const width = parseFloat(el.properties?.Dimensiones?.Espesor || el.properties?.Dimensiones?.Ancho || "0.3");
     const length = parseFloat(el.properties?.Dimensiones?.Largo || "4.0");
     const height = parseFloat(el.properties?.Dimensiones?.Altura || "3.0");
@@ -115,6 +117,7 @@ async function generateReal3DIFC(projectName: string, elements: any[]): Promise<
     currentX += length + 1.0;
   });
 
+  // 5. Exportar todo el árbol geométrico compilado en binario STEP IFC
   const data = localIfcApi.SaveModel(modelID);
   localIfcApi.CloseModel(modelID);
   

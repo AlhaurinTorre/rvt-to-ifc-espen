@@ -1,14 +1,14 @@
 import express from "express";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
-// Importamos el motor geométrico oficial de buildingSMART
-import IfcAPI from "web-ifc";
+// Cambiamos la importación para asegurar compatibilidad en empaquetadores distribuidos
+import { IfcAPI } from "web-ifc/web-ifc-api";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 const conversionStorage = new Map<string, { filename: string; content: Uint8Array; metadata: any; elements: any[] }>();
 
-// Inicializamos el mapa matemático de web-ifc
-const ifcApi = new IfcAPI.IfcAPI();
+// Inicializamos usando la clase directa
+const ifcApi = new IfcAPI();
 ifcApi.Init();
 
 function extractRevitMetadata(buffer: Buffer, originalFileName: string) {

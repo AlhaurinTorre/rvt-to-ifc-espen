@@ -207,5 +207,3 @@ try {
 }
 
 startServer().catch((err) => console.error("Error al iniciar el servidor:", err));
-
-startServer().catch((err) => console.error("Error al iniciar el servidor:", err));

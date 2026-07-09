@@ -149,7 +149,38 @@ app.post("/api/convert", express.raw({ limit: "50mb", type: "application/octet-s
           }
         });
 
-        // 2. SEGURO DE VIDA: Limpiamos por si acaso quedan acentos graves o etiquetas de código Markdown
+        // 2. SEGURO DE VIDA: Limpiamos por si acaso quedan bloques de código markdown
         let rawText = (response.text || "[]").trim();
         if (rawText.startsWith("```")) {
-          rawText = rawText.replace(/^
+          rawText = rawText.replace(/^```(json)?/, "").replace(/```$/, "").trim();
+        }
+        
+        elements = JSON.parse(rawText);
+      } catch (aiError) {
+        console.error("Error con la API de Gemini:", aiError);
+      }
+    }
+
+    // Generar el archivo IFC usando los elementos procesados
+    const ifcData = generateReal3DIFC(metadata.projectName, elements);
+    const conversionId = Math.random().toString(36).substring(2, 15);
+    
+    conversionStorage.set(conversionId, {
+      filename: `${metadata.projectName}.ifc`,
+      content: ifcData,
+      metadata,
+      elements
+    });
+
+    res.json({ id: conversionId, metadata, elements });
+  } catch (error: any) {
+    console.error("Error en el servidor:", error);
+    res.status(500).json({ error: error.message || "Error interno del servidor" });
+  }
+});
+
+// Servir frontend en producción si es necesario y levantar el puerto
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
+});

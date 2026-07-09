@@ -1,0 +1,6 @@
+{
+  "name": "RVT To IFC Online Converter",
+  "description": "Una aplicación web interactiva para convertir archivos de Revit (.rvt) a IFC (.ifc) online y de manera gratuita, sin necesidad de instalación ni registro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

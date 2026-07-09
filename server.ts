@@ -143,13 +143,12 @@ app.post("/api/convert", express.raw({ limit: "50mb", type: "application/octet-s
           
           Texto:
           ${textDump.substring(0, 25000)}`,
-          // 1. OBLIGAMOS A GEMINI A RESPONDER EXCLUSIVAMENTE EN FORMATO JSON
           generationConfig: {
             responseMimeType: "application/json"
           }
         });
 
-        // 2. SEGURO DE VIDA: Limpiamos por si acaso quedan bloques de código markdown
+        // Corrección de la línea que fallaba (Línea 155): Limpieza segura del JSON devuelto por Gemini
         let rawText = (response.text || "[]").trim();
         if (rawText.startsWith("```")) {
           rawText = rawText.replace(/^```(json)?/, "").replace(/```$/, "").trim();
@@ -161,7 +160,6 @@ app.post("/api/convert", express.raw({ limit: "50mb", type: "application/octet-s
       }
     }
 
-    // Generar el archivo IFC usando los elementos procesados
     const ifcData = generateReal3DIFC(metadata.projectName, elements);
     const conversionId = Math.random().toString(36).substring(2, 15);
     
@@ -178,15 +176,6 @@ app.post("/api/convert", express.raw({ limit: "50mb", type: "application/octet-s
     res.status(500).json({ error: error.message || "Error interno del servidor" });
   }
 });
-
-res.json({ id: conversionId, metadata, elements });
-  } catch (error: any) {
-    console.error("Error en el servidor:", error);
-    res.status(500).json({ error: error.message || "Error interno del servidor" });
-  }
-});
-
-// === REEMPLAZA DESDE AQUÍ HASTA EL FINAL DEL ARCHIVO ===
 
 // Servir los archivos estáticos de React (Vite los deja en la raíz de 'dist')
 const publicPath = path.join(__dirname);

@@ -23,7 +23,6 @@ function extractRevitMetadata(buffer: Buffer, originalFileName: string) {
 
 // NUEVO MOTOR GEOMÉTRICO 3D (Genera sólidos reales usando web-ifc de forma asíncrona)
 async function generateReal3DIFC(projectName: string, elements: any[]): Promise<Uint8Array> {
-  // Corregimos la extracción del constructor para entornos CommonJS y ESM empacados
   let IfcConstructor;
   if ((IfcAPI as any).PlutusAPI) {
     IfcConstructor = (IfcAPI as any).PlutusAPI;
@@ -37,10 +36,11 @@ async function generateReal3DIFC(projectName: string, elements: any[]): Promise<
 
   const localIfcApi = new IfcConstructor();
   
-  // En producción dentro de Render la ruta correcta apunta a node_modules
-  localIfcApi.SetWasmPath(path.join(__dirname, "../node_modules/web-ifc/"));
+  // CORRECCIÓN CLAVE: Usamos una ruta absoluta directa al directorio raíz del proyecto para evitar duplicaciones en Render
+  const rootDir = process.cwd();
+  localIfcApi.SetWasmPath(path.join(rootDir, "node_modules", "web-ifc") + path.sep);
   
-  // OBLIGATORIO: Inicializar el módulo web-ifc (cargar el archivo WASM en memoria)
+  // Inicializar el módulo web-ifc (cargar el archivo WASM en memoria)
   await localIfcApi.Init();
   
   // 1. Crear un modelo IFC en blanco en la memoria del servidor
@@ -164,7 +164,6 @@ app.post("/api/convert", express.raw({ limit: "50mb", type: "application/octet-s
       }
     }
 
-    // Añadido 'await' ya que ahora la función de geometría es asíncrona
     const ifcData = await generateReal3DIFC(metadata.projectName, elements);
     const conversionId = Math.random().toString(36).substring(2, 15);
     

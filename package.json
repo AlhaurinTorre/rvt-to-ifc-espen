@@ -10,7 +10,7 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
-  "dependencies": {
+"dependencies": {
     "@google/generative-ai": "^0.2.0",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
@@ -21,7 +21,8 @@
     "vite": "^6.2.3",
     "express": "^4.21.2",
     "dotenv": "^17.2.3",
-    "motion": "^12.23.24"
+    "motion": "^12.23.24",
+    "web-ifc": "^0.0.44"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

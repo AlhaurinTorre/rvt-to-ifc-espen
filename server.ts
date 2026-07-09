@@ -143,74 +143,13 @@ app.post("/api/convert", express.raw({ limit: "50mb", type: "application/octet-s
           
           Texto:
           ${textDump.substring(0, 25000)}`,
-          // ESTO OBLIGA A GEMINI A RESPONDER EXCLUSIVAMENTE EN FORMATO JSON
+          // 1. OBLIGAMOS A GEMINI A RESPONDER EXCLUSIVAMENTE EN FORMATO JSON
           generationConfig: {
             responseMimeType: "application/json"
           }
         });
-        const cleanJson = (response.text || "[]").trim();
-        elements = JSON.parse(cleanJson);
-      } catch (e) {
-        console.error("Fallo IA, usando fallback estructurado", e);
-      }
-    }
 
-    if (!elements || elements.length === 0) {
-      elements = [
-        { id: "f1", name: "Muro Maestro Basico", ifcClass: "IfcWall", type: "Generico", properties: { Dimensiones: { Largo: "4.0", Espesor: "0.25", Altura: "3.0" } } },
-        { id: "f2", name: "Puerta Principal", ifcClass: "IfcDoor", type: "Madera", properties: { Dimensiones: { Largo: "1.0", Espesor: "0.10", Altura: "2.1" } } }
-      ];
-    }
-
-    // Llamamos al motor geométrico real
-    const ifcRawData = generateReal3DIFC(metadata.projectName, elements);
-    const conversionId = "conv_" + Math.random().toString(36).substring(2, 15);
-
-    conversionStorage.set(conversionId, {
-      filename: `${metadata.projectName}.ifc`,
-      content: ifcRawData,
-      metadata,
-      elements
-    });
-
-    res.json({ success: true, id: conversionId, metadata, elements, ifcFileName: `${metadata.projectName}.ifc` });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/download/:id", (req, res) => {
-  const fileData = conversionStorage.get(req.params.id);
-  if (!fileData) return res.status(404).send("No encontrado");
-  res.setHeader("Content-Type", "application/octet-stream");
-  res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(fileData.filename)}"`);
-  res.send(Buffer.from(fileData.content));
-});
-
-async function startServer() {
-  // Inicializamos web-ifc de forma segura antes de levantar el servidor
-  try {
-    const IfcConstructor = IfcAPI.IfcAPI || (IfcAPI as any);
-    ifcApi = new IfcConstructor();
-    
-    ifcApi.SetWasmPath("./node_modules/web-ifc/");
-    await ifcApi.Init();
-    console.log("Motor geométrico web-ifc inicializado correctamente.");
-  } catch (wasmError) {
-    console.error("Error crítico inicializando el WASM de web-ifc:", wasmError);
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    const { createServer } = await import("vite");
-    const vite = await createServer({ server: { middlewareMode: true }, appType: "spa" });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
-  }
-
-  app.listen(3000, "0.0.0.0", () => console.log("Servidor Geometria Real Activo"));
-}
-
-startServer().catch((err) => console.error("Error al iniciar el servidor:", err));
+        // 2. SEGURO DE VIDA: Limpiamos por si acaso quedan acentos graves o etiquetas de código Markdown
+        let rawText = (response.text || "[]").trim();
+        if (rawText.startsWith("```")) {
+          rawText = rawText.replace(/^

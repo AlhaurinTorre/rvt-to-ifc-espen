@@ -49,29 +49,4 @@ function generateReal3DIFC(projectName: string, elements: any[]): Uint8Array {
   const building = new IfcAPI.IFC4.IfcBuilding("1Xy9zB$8PC3w2sY7$Saaaaa", ownerHistory, "Edificio Generado", "Estructura 3D", null, null, null, null, IfcAPI.IFC4.IfcElementCompositionEnum.ELEMENT, null, null, null);
   localIfcApi.WriteLine(modelID, building);
 
-  // Posicionamiento geométrico inicial (0,0,0)
-  const origin = new IfcAPI.IFC4.IfcCartesianPoint([0, 0, 0]);
-  const axis = new IfcAPI.IFC4.IfcDirection([0, 0, 1]);
-  const refDirection = new IfcAPI.IFC4.IfcDirection([1, 0, 0]);
-  const placement = new IfcAPI.IFC4.IfcAxis2Placement3D(origin, axis, refDirection);
-  const localPlacement = new IfcAPI.IFC4.IfcLocalPlacement(null, placement);
-  localIfcApi.WriteLine(modelID, localPlacement);
-
-  let currentX = 0.0; // Desplazamiento secuencial en el espacio para que los objetos no se solapen
-
-  // 4. Mapear cada elemento detectado por la IA en un SÓLIDO 3D REAL (Extrusión paramétrica)
-  elements.forEach((el) => {
-    // Extraer dimensiones lógicas dictadas por la IA o usar por defecto
-    const width = parseFloat(el.properties?.Dimensiones?.Espesor || el.properties?.Dimensiones?.Ancho || "0.3");
-    const length = parseFloat(el.properties?.Dimensiones?.Largo || "4.0");
-    const height = parseFloat(el.properties?.Dimensiones?.Altura || "3.0");
-
-    // Crear el perfil 2D del objeto (un rectángulo en la base)
-    const point1 = new IfcAPI.IFC4.IfcCartesianPoint([0, 0]);
-    const point2 = new IfcAPI.IFC4.IfcCartesianPoint([length, 0]);
-    const point3 = new IfcAPI.IFC4.IfcCartesianPoint([length, width]);
-    const point4 = new IfcAPI.IFC4.IfcCartesianPoint([0, width]);
-    const polyline = new IfcAPI.IFC4.IfcPolyline([point1, point2, point3, point4, point1]);
-    localIfcApi.WriteLine(modelID, polyline);
-
-    const profile = new IfcAPI.IFC4.IfcArbitraryClosedProfileDef(IfcAPI.IFC4.IfcProfile
+  // Posicionamiento geométrico inicial (0,0,0

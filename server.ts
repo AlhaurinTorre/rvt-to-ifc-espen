@@ -36,12 +36,20 @@ async function generateReal3DIFC(projectName: string, elements: any[]): Promise<
 
   const localIfcApi = new IfcConstructor();
   
-  // CORRECCIÓN CLAVE: Usamos una ruta absoluta directa al directorio raíz del proyecto para evitar duplicaciones en Render
+  // SOLUCIÓN DEFINITIVA PARA RENDER:
+  // En lugar de confiar en 'SetWasmPath' que duplica rutas en Linux, localizamos el archivo WASM 
+  // usando el directorio de ejecución actual de Node (process.cwd()) y lo leemos manualmente.
   const rootDir = process.cwd();
-  localIfcApi.SetWasmPath(path.join(rootDir, "node_modules", "web-ifc") + path.sep);
+  const wasmFilePath = path.join(rootDir, "node_modules", "web-ifc", "web-ifc-node.wasm");
   
-  // Inicializar el módulo web-ifc (cargar el archivo WASM en memoria)
-  await localIfcApi.Init();
+  if (!fs.existsSync(wasmFilePath)) {
+    throw new Error(`No se encontró el archivo WASM requerido en la ruta: ${wasmFilePath}`);
+  }
+
+  const wasmBinary = fs.readFileSync(wasmFilePath);
+
+  // Inicializar el módulo web-ifc inyectándole directamente el binario cargado por 'fs'
+  await localIfcApi.Init(wasmBinary);
   
   // 1. Crear un modelo IFC en blanco en la memoria del servidor
   const modelID = localIfcApi.CreateModel();

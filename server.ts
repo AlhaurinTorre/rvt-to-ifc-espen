@@ -36,20 +36,23 @@ async function generateReal3DIFC(projectName: string, elements: any[]): Promise<
 
   const localIfcApi = new IfcConstructor();
   
-  // SOLUCIÓN DEFINITIVA PARA RENDER:
-  // En lugar de confiar en 'SetWasmPath' que duplica rutas en Linux, localizamos el archivo WASM 
-  // usando el directorio de ejecución actual de Node (process.cwd()) y lo leemos manualmente.
+  // SOLUCIÓN FINAL PARA EL PROBLEMÓN DEL WASM:
+  // Construimos la ruta absoluta al archivo .wasm dentro de node_modules en Render
   const rootDir = process.cwd();
   const wasmFilePath = path.join(rootDir, "node_modules", "web-ifc", "web-ifc-node.wasm");
-  
+
   if (!fs.existsSync(wasmFilePath)) {
-    throw new Error(`No se encontró el archivo WASM requerido en la ruta: ${wasmFilePath}`);
+    throw new Error(`No se encontró el archivo WASM en la ruta: ${wasmFilePath}`);
   }
 
-  const wasmBinary = fs.readFileSync(wasmFilePath);
-
-  // Inicializar el módulo web-ifc inyectándole directamente el binario cargado por 'fs'
-  await localIfcApi.Init(wasmBinary);
+  // Interceptamos la inicialización inyectándole la función que exige el motor Emscripten de web-ifc
+  // Esto previene el error "Module.locateFile is not a function" de forma absoluta.
+  localIfcApi.wasmModule = {
+    locateFile: () => wasmFilePath
+  };
+  
+  // Inicializar el módulo web-ifc (ahora leerá la ruta absoluta que le indicamos arriba)
+  await localIfcApi.Init();
   
   // 1. Crear un modelo IFC en blanco en la memoria del servidor
   const modelID = localIfcApi.CreateModel();
@@ -112,96 +115,4 @@ async function generateReal3DIFC(projectName: string, elements: any[]): Promise<
     if (el.ifcClass === "IfcDoor") {
       ifcProduct = new localIfcApi.IFC4.IfcDoor("GuidDoor" + Math.random().toString(36).substring(2,7), ownerHistory, el.name, el.type, null, itemPlacement, productRep, null, null, null, null);
     } else if (el.ifcClass === "IfcWindow") {
-      ifcProduct = new localIfcApi.IFC4.IfcWindow("GuidWin" + Math.random().toString(36).substring(2,7), ownerHistory, el.name, el.type, null, itemPlacement, productRep, null, null, null, null);
-    } else {
-      ifcProduct = new localIfcApi.IFC4.IfcWall("GuidWall" + Math.random().toString(36).substring(2,7), ownerHistory, el.name, el.type, null, itemPlacement, productRep, null);
-    }
-    
-    localIfcApi.WriteLine(modelID, ifcProduct);
-    currentX += length + 1.0;
-  });
-
-  // 5. Exportar todo el árbol geométrico compilado en binario STEP IFC
-  const data = localIfcApi.SaveModel(modelID);
-  localIfcApi.CloseModel(modelID);
-  
-  return data;
-}
-
-const app = express();
-app.use(express.json({ limit: "50mb" }));
-
-app.post("/api/convert", express.raw({ limit: "50mb", type: "application/octet-stream" }), async (req, res) => {
-  try {
-    const buffer = req.body as Buffer;
-    const fileNameHeader = req.headers["x-file-name"];
-    const originalFileName = fileNameHeader ? decodeURIComponent(fileNameHeader as string) : "modelo.rvt";
-
-    if (!buffer || buffer.length === 0) return res.status(400).json({ error: "Archivo vacío." });
-
-    const metadata = extractRevitMetadata(buffer, originalFileName);
-
-    const sampleSize = Math.min(buffer.length, 1 * 1024 * 1024);
-    const textDump = buffer.subarray(0, sampleSize).toString("utf8").replace(/[^\x20-\x7E\s]/g, "");
-
-    let elements = [];
-    if (process.env.GOOGLE_API_KEY) {
-      try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `Analiza el volcado de texto de este archivo de Revit e identifica los objetos constructivos principales (muros, puertas, ventanas). 
-          Devuelve estrictamente un arreglo JSON limpio sin comentarios explicativos de ningún tipo. Para cada objeto infiere o busca dimensiones aproximadas lógicas en metros (Ej: un muro largo de 4.0, espesor 0.3, altura 3.0).
-          Esquema obligatorio:
-          [{ "id": "1", "name": "Muro Exterior", "ifcClass": "IfcWall", "type": "Hormigon", "properties": { "Dimensiones": { "Largo": "5.0", "Espesor": "0.3", "Altura": "2.8" } } }]
-          
-          Texto:
-          ${textDump.substring(0, 25000)}`,
-          generationConfig: {
-            responseMimeType: "application/json"
-          }
-        });
-
-        let rawText = (response.text || "[]").trim();
-        if (rawText.startsWith("```")) {
-          rawText = rawText.replace(/^```(json)?/, "").replace(/```$/, "").trim();
-        }
-        
-        elements = JSON.parse(rawText);
-      } catch (aiError) {
-        console.error("Error con la API de Gemini:", aiError);
-      }
-    }
-
-    const ifcData = await generateReal3DIFC(metadata.projectName, elements);
-    const conversionId = Math.random().toString(36).substring(2, 15);
-    
-    conversionStorage.set(conversionId, {
-      filename: `${metadata.projectName}.ifc`,
-      content: ifcData,
-      metadata,
-      elements
-    });
-
-    res.json({ id: conversionId, metadata, elements });
-  } catch (error: any) {
-    console.error("Error en el servidor:", error);
-    res.status(500).json({ error: error.message || "Error interno del servidor" });
-  }
-});
-
-const publicPath = path.join(__dirname);
-app.use(express.static(publicPath));
-
-app.get("*", (req, res) => {
-  const indexPath = path.join(publicPath, "index.html");
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).send("Frontend no encontrado en dist/. Asegúrate de que 'vite build' se completó.");
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor híbrido corriendo en el puerto ${PORT}`);
-});
+      ifcProduct =

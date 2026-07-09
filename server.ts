@@ -1,14 +1,14 @@
 import express from "express";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
-// Cambiamos la importación para asegurar compatibilidad en empaquetadores distribuidos
-import { IfcAPI } from "web-ifc/web-ifc-api";
+// Volvemos a la importación oficial estándar que exporta el paquete
+import IfcAPI from "web-ifc";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 const conversionStorage = new Map<string, { filename: string; content: Uint8Array; metadata: any; elements: any[] }>();
 
-// Inicializamos usando la clase directa
-const ifcApi = new IfcAPI();
+// Inicializamos llamando al constructor correcto dentro del módulo importado
+const ifcApi = new IfcAPI.IfcAPI();
 ifcApi.Init();
 
 function extractRevitMetadata(buffer: Buffer, originalFileName: string) {

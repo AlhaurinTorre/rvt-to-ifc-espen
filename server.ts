@@ -180,9 +180,12 @@ app.get("/api/download/:id", (req, res) => {
 
 async function startServer() {
   // Inicializamos web-ifc de forma segura antes de levantar el servidor
-  try {
-    ifcApi = new IfcAPI.IfcAPI();
-    // En entornos Node, simplemente pasamos la ruta del directorio base relativo
+try {
+    // Truco definitivo: detecta si la clase está en .IfcAPI o directamente en el objeto importado
+    const IfcConstructor = IfcAPI.IfcAPI || (IfcAPI as any);
+    ifcApi = new IfcConstructor();
+    
+    // Asignamos la ruta de la carpeta base
     ifcApi.SetWasmPath("./node_modules/web-ifc/");
     await ifcApi.Init();
     console.log("Motor geométrico web-ifc inicializado correctamente.");

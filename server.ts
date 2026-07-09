@@ -10,9 +10,8 @@ const conversionStorage = new Map<string, { filename: string; content: Uint8Arra
 // Inicializamos llamando al constructor correcto dentro del módulo importado
 const ifcApi = new IfcAPI.IfcAPI();
 
-// Le decimos al motor geométrico exactamente dónde encontrar su binario WebAssembly
-const wasmPath = path.join(process.cwd(), "node_modules", "web-ifc", "web-ifc.wasm");
-ifcApi.SetWasmPath(wasmPath);
+// Le pasamos únicamente la ruta del directorio con una barra al final
+ifcApi.SetWasmPath("node_modules/web-ifc/");
 
 ifcApi.Init();
 

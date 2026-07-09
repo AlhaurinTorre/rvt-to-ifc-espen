@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 // Volvemos a la importación oficial estándar que exporta el paquete
 import IfcAPI from "web-ifc";
@@ -7,11 +8,21 @@ import IfcAPI from "web-ifc";
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 const conversionStorage = new Map<string, { filename: string; content: Uint8Array; metadata: any; elements: any[] }>();
 
-// Inicializamos llamando al constructor correcto dentro del módulo importado
 const ifcApi = new IfcAPI.IfcAPI();
 
-// Le pasamos únicamente la ruta del directorio con una barra al final
-ifcApi.SetWasmPath("node_modules/web-ifc/");
+// Buscamos la ruta absoluta real dentro del contenedor de Render
+const localWasm = path.join(process.cwd(), "node_modules", "web-ifc", "web-ifc-node.wasm");
+const alternativeWasm = path.join(process.cwd(), "node_modules", "web-ifc", "web-ifc.wasm");
+
+if (fs.existsSync(localWasm)) {
+  // Si existe el binario de Node, le pasamos su directorio exacto terminado en barra
+  ifcApi.SetWasmPath(path.join(process.cwd(), "node_modules", "web-ifc") + path.sep);
+} else if (fs.existsSync(alternativeWasm)) {
+  ifcApi.SetWasmPath(path.join(process.cwd(), "node_modules", "web-ifc") + path.sep);
+} else {
+  // Si por alguna razón Render los movió al build, apuntamos a la raíz del paquete
+  ifcApi.SetWasmPath("./node_modules/web-ifc/");
+}
 
 ifcApi.Init();
 

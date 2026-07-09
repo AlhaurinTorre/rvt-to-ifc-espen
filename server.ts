@@ -179,14 +179,18 @@ app.get("/api/download/:id", (req, res) => {
   res.send(Buffer.from(fileData.content));
 });
 
-if (process.env.NODE_ENV !== "production") {
-  const { createServer } = await import("vite");
-  const vite = await createServer({ server: { middlewareMode: true }, appType: "spa" });
-  app.use(vite.middlewares);
-} else {
-  const distPath = path.join(process.cwd(), "dist");
-  app.use(express.static(distPath));
-  app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
+async function startServer() {
+  if (process.env.NODE_ENV !== "production") {
+    const { createServer } = await import("vite");
+    const vite = await createServer({ server: { middlewareMode: true }, appType: "spa" });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
+  }
+
+  app.listen(3000, "0.0.0.0", () => console.log("Servidor Geometria Real Activo"));
 }
 
-app.listen(3000, "0.0.0.0", () => console.log("Servidor Geometria Real Activo"));
+startServer().catch((err) => console.error("Error al iniciar el servidor:", err));
